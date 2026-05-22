@@ -1,0 +1,24 @@
+# Godot 4+
+.godot/
+*.translation
+export_presets.cfg
+
+# Local Godot editor builds (large; re-download from godotengine.org if needed)
+tools/godot/
+tools/godot-mono/
+
+# C# build output
+.smono/
+bin/
+obj/
+*.csproj.DotSettings.user
+
+# Unrelated files dropped in project root
+*.7z
+*.pdf
+Screenshot*.png
+Screenshot*.png.import
+
+# Large installers / duplicate source archives (extracted folders are tracked)
+*.zip
+*.msi
