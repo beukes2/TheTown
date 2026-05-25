@@ -1,45 +1,44 @@
-extends CharacterBody3D
+extends CharacterBody2D
 
-## Walks on the XZ plane. Crossing MAP_HALF triggers switch_background on Main.
+## Layer 6 — walks on screen (X/Y pixels). Crossing bounds triggers switch_background.
 
-const SPEED: float = 3.5
-const MAP_HALF: Vector2 = Vector2(7.0, 7.0)
-const FOOT_HEIGHT: float = 0.0
+## Pixels per second (screen space). 80% / 95% slower than base, then +70%, then +40% faster.
+const SPEED_BASE: float = 200.0 * 1.7 * 1.4
+const SPEED_H: float = SPEED_BASE * 0.2
+const SPEED_V: float = SPEED_BASE * 0.05
+const MAP_MARGIN := Vector2(80.0, 80.0)
 
-var _anim: AnimationPlayer
+const WALK_TEXTURE := "res://assets/QWE-walk.png"
+const WALK_COLS := 5
+const WALK_ROWS := 5
+const WALK_FPS := 10.0
+
+@onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
+
+var _facing_right := true
 
 
 func _ready() -> void:
-	_anim = _find_animation_player(self)
-	if _anim:
-		var list := _anim.get_animation_list()
-		for anim_name in list:
-			var anim := _anim.get_animation(anim_name)
-			if anim:
-				anim.loop_mode = Animation.LOOP_LINEAR
-		if list.size() > 0:
-			_anim.play(_pick_walk_or_first())
+	if _sprite:
+		_sprite.sprite_frames = _build_walk_frames()
+		_sprite.play(&"walk")
+		_sprite.stop()
 
 
 func _physics_process(_delta: float) -> void:
 	var input_dir := _read_move_input()
-	var direction := Vector3(input_dir.x, 0.0, input_dir.y)
-	if direction.length() > 0.01:
-		direction = direction.normalized()
-		velocity.x = direction.x * SPEED
-		velocity.z = direction.z * SPEED
-		look_at(global_position + direction, Vector3.UP)
-		_play_walk_if_needed()
+	if input_dir.length() > 0.01:
+		velocity = Vector2(input_dir.x * SPEED_H, input_dir.y * SPEED_V)
+		_update_facing(input_dir)
+		if _sprite and not _sprite.is_playing():
+			_sprite.play(&"walk")
 	else:
-		velocity.x = move_toward(velocity.x, 0.0, SPEED)
-		velocity.z = move_toward(velocity.z, 0.0, SPEED)
-		if _anim:
-			_anim.stop()
+		velocity = velocity.move_toward(Vector2.ZERO, SPEED_H)
+		if _sprite:
+			_sprite.stop()
 
-	velocity.y = 0.0
 	move_and_slide()
-	global_position.y = FOOT_HEIGHT
-	_check_map_edge()
+	_clamp_to_play_area()
 
 
 func _read_move_input() -> Vector2:
@@ -56,52 +55,49 @@ func _read_move_input() -> Vector2:
 	return Vector2(x, y)
 
 
-func _check_map_edge() -> void:
+func _update_facing(input_dir: Vector2) -> void:
+	if _sprite == null:
+		return
+	if absf(input_dir.x) > 0.05:
+		_facing_right = input_dir.x > 0.0
+	_sprite.flip_h = not _facing_right
+
+
+func _clamp_to_play_area() -> void:
+	var vp := get_viewport().get_visible_rect().size
+	var min_p := MAP_MARGIN
+	var max_p := vp - MAP_MARGIN
 	var p := global_position
 	var crossed := false
-	if p.x > MAP_HALF.x:
-		p.x = -MAP_HALF.x + 0.75
+	if p.x > max_p.x:
+		p.x = min_p.x + 40.0
 		crossed = true
-	elif p.x < -MAP_HALF.x:
-		p.x = MAP_HALF.x - 0.75
+	elif p.x < min_p.x:
+		p.x = max_p.x - 40.0
 		crossed = true
-	if p.z > MAP_HALF.y:
-		p.z = -MAP_HALF.y + 0.75
+	if p.y > max_p.y:
+		p.y = min_p.y + 40.0
 		crossed = true
-	elif p.z < -MAP_HALF.y:
-		p.z = MAP_HALF.y - 0.75
+	elif p.y < min_p.y:
+		p.y = max_p.y - 40.0
 		crossed = true
 	if crossed:
 		get_tree().call_group("game", "switch_background")
 	global_position = p
 
 
-func _play_walk_if_needed() -> void:
-	if _anim == null:
-		return
-	var name := _pick_walk_or_first()
-	if _anim.current_animation != String(name) or not _anim.is_playing():
-		_anim.play(name)
-
-
-func _pick_walk_or_first() -> StringName:
-	if _anim == null:
-		return &""
-	var list := _anim.get_animation_list()
-	for anim_name in list:
-		var s := String(anim_name).to_lower()
-		if s.contains("walk") or s.contains("mixamo"):
-			return anim_name
-	if list.size() > 0:
-		return list[0]
-	return &""
-
-
-func _find_animation_player(node: Node) -> AnimationPlayer:
-	if node is AnimationPlayer:
-		return node
-	for c in node.get_children():
-		var r := _find_animation_player(c)
-		if r:
-			return r
-	return null
+func _build_walk_frames() -> SpriteFrames:
+	var sf := SpriteFrames.new()
+	sf.add_animation(&"walk")
+	sf.set_animation_loop(&"walk", true)
+	sf.set_animation_speed(&"walk", WALK_FPS)
+	var tex: Texture2D = load(WALK_TEXTURE)
+	var fw := tex.get_width() / WALK_COLS
+	var fh := tex.get_height() / WALK_ROWS
+	for row in WALK_ROWS:
+		for col in WALK_COLS:
+			var at := AtlasTexture.new()
+			at.atlas = tex
+			at.region = Rect2(col * fw, row * fh, fw, fh)
+			sf.add_frame(&"walk", at)
+	return sf
