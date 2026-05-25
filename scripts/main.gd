@@ -3,7 +3,7 @@ extends Control
 ## forestfloor = only background. Stumps vs man depth by feet Y vs stump base Y.
 
 const STUMP_TEXTURE := "res://assets/trees/stumps_log_01.png"
-const STUMP_SCALE := 0.5 * 1.5
+const STUMP_SCALE := 0.5 * 1.5 * 2.0
 const PROP_COUNT := 14
 const PROP_MARGIN := Vector2(90.0, 90.0)
 const CLEAR_RADIUS := 150.0
